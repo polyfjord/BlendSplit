@@ -211,6 +211,7 @@ class BLENDSPLIT_PT_overlay(Panel):
         row = layout.row(align=True)
         row.prop(settings, "show_attempts")
         row.prop(settings, "show_pb")
+        layout.prop(settings, "show_relative_time")
         layout.separator()
         layout.operator("blendsplit.reset_ui_settings", icon="FILE_REFRESH")
 

@@ -26,4 +26,10 @@ def format_delta(delta_ns: int | None, decimals: int = 2) -> str:
     if delta_ns is None:
         return ""
     sign = "−" if delta_ns < 0 else "+"
-    return sign + format_time(abs(delta_ns), decimals=decimals).lstrip("0:")
+    formatted_time = format_time(abs(delta_ns), decimals=decimals)
+
+    # Keeps "nescessary" Zeroes for user readability
+    if formatted_time.startswith("00:"):
+        formatted_time = formatted_time[3:]
+    
+    return sign + formatted_time

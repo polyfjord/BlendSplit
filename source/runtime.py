@@ -54,6 +54,39 @@ def comparison_pb_time(index: int) -> float:
     return _comparison_pb[index] if 0 <= index < len(_comparison_pb) else -1.0
 
 
+def comparison_segment_pb_time(index: int) -> float:
+    """Return the captured segment duration when this attempt began, or -1 if unavailable."""
+    if not 0 <= index < len(_comparison_pb):
+        return -1.0
+    
+    current = _comparison_pb[index]
+
+    if current < 0:
+        return -1.0
+    
+    previous = _comparison_pb[index - 1] if index > 0 else 0.0
+
+    if previous < 0:
+        return -1.0
+    
+    return current - previous
+
+
+def current_segment_elapsed_ns() -> int:
+    """Return the current elapsed time for the active segment"""
+    elapsed = engine.elapsed_ns()
+
+    if engine.current_index == 0:
+        return elapsed
+    
+    previous = engine.results[engine.current_index - 1]
+
+    if previous.cumulative_ns is None:
+        return elapsed
+
+    return max(0, elapsed - previous.cumulative_ns)
+
+
 def record_split(settings: "BlendSplitSettings") -> None:
     global last_gold_index, _pb_before_finish
     result = engine.split()

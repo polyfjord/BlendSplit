@@ -167,6 +167,12 @@ class BlendSplitSettings(PropertyGroup):
         default=True,
         update=_ui_changed,
     )
+    show_relative_time: BoolProperty(
+        name="Show Relative Time",
+        description="Show the difference between the current segment and personal-best in the viewport overlay",
+        default=True,
+        update=_ui_changed,
+    )
     overlay_anchor: EnumProperty(
         name="Anchor",
         description="Viewport corner used to position the overlay",

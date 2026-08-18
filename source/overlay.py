@@ -8,7 +8,7 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 
 from . import icon_atlas, runtime
-from .core import format_time
+from .core import format_time, format_delta
 
 
 _draw_handle: object | None = None
@@ -77,12 +77,20 @@ def _row_label_width(
     pad: float,
     icon_space: float,
     value_width: float,
+    relative_width: float,
     scale: float,
 ) -> float:
     """Use all row space except what an icon and visible time actually need."""
-    value_space = value_width + 10 * scale if value_width > 0 else 0.0
-    return max(0.0, width - 2 * pad - icon_space - value_space)
+    space_value = 0.0
 
+    if value_width > 0:
+        space_value += value_width
+    if relative_width > 0:
+        space_value += relative_width + 10 * scale 
+    if space_value > 0:
+        space_value += 10 * scale
+
+    return max(0.0, width - 2 * pad - icon_space - space_value)
 
 def _overlay_position(
     region_width: float,
@@ -178,19 +186,60 @@ def _draw_overlay() -> None:
 
             result = runtime.engine.results[split_index] if split_index < len(runtime.engine.results) else None
             label_color = GOLD if split_index == runtime.last_gold_index else TEXT
+            
             value = ""
             value_color = MUTED
+
+            relative_time_value = ""
+            relative_time_value_color = MUTED
+            
             if result is not None:
                 if result.skipped:
                     value = "—"
+                    relative_time_value = "—"
                 else:
                     value = format_time(result.cumulative_ns, decimals)
-                    comparison_pb = runtime.comparison_pb_time(split_index)
-                    if settings.show_pb and comparison_pb >= 0 and result.cumulative_ns is not None:
-                        delta = result.cumulative_ns - runtime.seconds_to_ns(comparison_pb)
-                        value_color = GREEN if delta <= 0 else RED
-                    else:
-                        value_color = TEXT
+                    value_color = TEXT
+
+                    if settings.show_relative_time:
+                        current_segment = result.segment_ns
+                        pb_segment = runtime.comparison_segment_pb_time(split_index)
+                        if current_segment is not None and pb_segment >= 0:
+                            relative_time_delta = (
+                                current_segment 
+                                - runtime.seconds_to_ns(pb_segment)
+                            )
+                            relative_time_value = format_delta(
+                                relative_time_delta, 
+                                decimals,
+                            )
+                            relative_time_value_color = (
+                                GREEN if relative_time_delta <= 0 else RED
+                            )
+            elif is_current:
+                value = format_time(
+                    runtime.engine.elapsed_ns(),
+                    decimals,
+                )
+
+                if settings.show_relative_time:
+                    pb_segment = runtime.comparison_segment_pb_time(split_index)
+    
+                    if pb_segment >= 0:
+                        current_segment = runtime.current_segment_elapsed_ns()
+                        relative_time_delta = (
+                            current_segment
+                            - runtime.seconds_to_ns(pb_segment)
+                        )
+                        relative_time_value = format_delta(
+                            relative_time_delta, 
+                            decimals
+                        )
+                        relative_time_value_color = (
+                            GREEN if relative_time_delta <= 0 else RED
+                        )
+
+
             elif settings.show_pb and item.pb_time >= 0:
                 value = format_time(runtime.seconds_to_ns(item.pb_time), decimals)
 
@@ -203,10 +252,16 @@ def _draw_overlay() -> None:
                 label_x += icon_space
             blf.size(0, row_size)
             value_width = blf.dimensions(0, value)[0] if value else 0.0
-            label_width = _row_label_width(width, pad, icon_space, value_width, scale)
+            relative_width = blf.dimensions(0, relative_time_value)[0] if relative_time_value else 0.0
+            
+            value_right = x + width - pad
+            relative_right = value_right - value_width - 10 * scale
+            
+            label_width = _row_label_width(width, pad, icon_space, value_width, relative_width, scale)
             label = _fit_text(item.name, label_width, row_size)
             _text(label, label_x, row_y + 8 * scale, row_size, label_color)
-            _text(value, x + width - pad, row_y + 8 * scale, row_size, value_color, right=x + width - pad)
+            _text(relative_time_value, relative_right, row_y + 8 * scale, row_size, relative_time_value_color, right=relative_right )
+            _text(value, value_right, row_y + 8 * scale, row_size, value_color, right=value_right)
 
         footer_top = y + footer_height
         _rect(x, footer_top, width, max(1.0, scale), DIVIDER)
